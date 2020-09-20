@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-from sys import path
 
 from mega import Mega
 
@@ -30,6 +29,13 @@ def upload(account, filename):
     mega.login(account["id"], account["password"])
     file = mega.upload(filename)
     return mega.get_upload_link(file)
+
+
+def download(account, filename):
+    mega = Mega()
+    mega.login(account["id"], account["password"])
+    file = mega.find(filename)
+    mega.download(file, distribute_dir)
 
 
 def clear_distribute(file_list):
@@ -75,8 +81,23 @@ def distributed_upload():
 
 
 def distributed_download():
-    pass
+    file_list = load_file_list()
+    account_list = load_account_list()
+
+    mega_account_list = account_list["mega"]
+    chunk_metadata_list = file_list[filename]
+
+    for idx, metadata in enumerate(chunk_metadata_list):
+        account = mega_account_list[metadata["index"]]
+        download(account, metadata["chunk_filename"])
+
+    with open("downloaded_" + filename, "wb") as f:
+        for metadata in chunk_metadata_list:
+            chunk_name = metadata["chunk_filename"]
+
+            with open(distribute_dir + "/" + chunk_name, "rb") as c:
+                f.write(c.read(chunk_size))
 
 
 if __name__ == '__main__':
-    distributed_upload()
+    distributed_download()
