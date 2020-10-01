@@ -1,6 +1,8 @@
+import asyncio
 import hashlib
 import json
 import os
+from datetime import datetime
 
 from mega import Mega
 
@@ -24,10 +26,12 @@ def save_file_list(file_list):
         json.dump(file_list, json_file)
 
 
-def upload(account, filename):
+async def upload(account, filename):
     mega = Mega()
+    print(f"[{datetime.now()}] upload start: {filename}")
     mega.login(account["id"], account["password"])
     file = mega.upload(filename)
+    print(f"[{datetime.now()}] uploaded: {filename}")
     return mega.get_upload_link(file)
 
 
@@ -39,11 +43,12 @@ def download(account, filename):
 
 
 def clear_distribute(file_list):
-    for file in file_list:
+    filename_list = [x["chunk_filename"] for x in file_list]
+    for file in filename_list:
         os.remove(distribute_dir + "/" + file)
 
 
-def distributed_upload():
+async def distributed_upload():
     file_list = load_file_list()
 
     with open(filename, "rb") as f:
@@ -65,9 +70,14 @@ def distributed_upload():
 
     account_size = len(mega_account_list)
     upload_file_chunk_list = []
+    task_list = []
     for idx, chunk_filename in enumerate(filelist):
         account = mega_account_list[idx % account_size]
-        upload(account, distribute_dir + "/" + chunk_filename)
+        task_list.append(
+            asyncio.create_task(
+                upload(account, distribute_dir + "/" + chunk_filename)
+            )
+        )
         upload_file_chunk_list.append(
             {
                 "storage": "mega",
@@ -75,9 +85,12 @@ def distributed_upload():
                 "chunk_filename": chunk_filename
             }
         )
+        print(upload_file_chunk_list[-1])
+
+    await asyncio.gather(*task_list)
     file_list[filename] = upload_file_chunk_list
     save_file_list(file_list)
-    clear_distribute(file_list)
+    clear_distribute(file_list[filename])
 
 
 def distributed_download():
@@ -97,7 +110,10 @@ def distributed_download():
 
             with open(distribute_dir + "/" + chunk_name, "rb") as c:
                 f.write(c.read(chunk_size))
+    clear_distribute(file_list[filename])
 
 
 if __name__ == '__main__':
-    distributed_download()
+    print(f"[{datetime.now()}] Start upload")
+    asyncio.run(distributed_upload())
+    print(f"[{datetime.now()}] Finish upload")
