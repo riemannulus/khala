@@ -1,6 +1,8 @@
 import hashlib
 import json
 import os
+from datetime import datetime
+from multiprocessing import Process
 
 from mega import Mega
 
@@ -26,8 +28,10 @@ def save_file_list(file_list):
 
 def upload(account, filename):
     mega = Mega()
+    print(f"[{datetime.now()}] upload start: {filename}")
     mega.login(account["id"], account["password"])
     file = mega.upload(filename)
+    print(f"[{datetime.now()}] uploaded: {filename}")
     return mega.get_upload_link(file)
 
 
@@ -39,8 +43,7 @@ def download(account, filename):
 
 
 def clear_distribute(file_list):
-    for file in file_list:
-        os.remove(distribute_dir + "/" + file)
+    os.remove(distribute_dir)
 
 
 def distributed_upload():
@@ -65,9 +68,12 @@ def distributed_upload():
 
     account_size = len(mega_account_list)
     upload_file_chunk_list = []
+    procs = []
     for idx, chunk_filename in enumerate(filelist):
         account = mega_account_list[idx % account_size]
-        upload(account, distribute_dir + "/" + chunk_filename)
+        proc = Process(target=upload, args=(account, distribute_dir + "/" + chunk_filename))
+        procs.append(proc)
+        proc.start()
         upload_file_chunk_list.append(
             {
                 "storage": "mega",
@@ -77,7 +83,8 @@ def distributed_upload():
         )
     file_list[filename] = upload_file_chunk_list
     save_file_list(file_list)
-    clear_distribute(file_list)
+    for proc in procs:
+        proc.join()
 
 
 def distributed_download():
@@ -100,4 +107,4 @@ def distributed_download():
 
 
 if __name__ == '__main__':
-    distributed_download()
+    distributed_upload()
