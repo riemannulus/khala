@@ -1,10 +1,11 @@
 import hashlib
 import json
 import os
+from datetime import datetime
 
 from mega import Mega
 
-filename = "target.dmg"
+target_filename = "target/300M.txt"
 distribute_dir = "distributed"
 chunk_size = 20 * 1024 * 1024
 
@@ -26,8 +27,10 @@ def save_file_list(file_list):
 
 def upload(account, filename):
     mega = Mega()
+    print(f"[{datetime.now()}] upload start: {filename}")
     mega.login(account["id"], account["password"])
     file = mega.upload(filename)
+    print(f"[{datetime.now()}] uploaded: {filename}")
     return mega.get_upload_link(file)
 
 
@@ -46,7 +49,7 @@ def clear_distribute(file_list):
 def distributed_upload():
     file_list = load_file_list()
 
-    with open(filename, "rb") as f:
+    with open(target_filename, "rb") as f:
         chunk = f.read(chunk_size)
         filelist = []
 
@@ -75,7 +78,7 @@ def distributed_upload():
                 "chunk_filename": chunk_filename
             }
         )
-    file_list[filename] = upload_file_chunk_list
+    file_list[target_filename] = upload_file_chunk_list
     save_file_list(file_list)
     clear_distribute(file_list)
 
@@ -85,13 +88,13 @@ def distributed_download():
     account_list = load_account_list()
 
     mega_account_list = account_list["mega"]
-    chunk_metadata_list = file_list[filename]
+    chunk_metadata_list = file_list[target_filename]
 
     for idx, metadata in enumerate(chunk_metadata_list):
         account = mega_account_list[metadata["index"]]
         download(account, metadata["chunk_filename"])
 
-    with open("downloaded_" + filename, "wb") as f:
+    with open("downloaded_" + target_filename, "wb") as f:
         for metadata in chunk_metadata_list:
             chunk_name = metadata["chunk_filename"]
 
@@ -99,5 +102,14 @@ def distributed_download():
                 f.write(c.read(chunk_size))
 
 
+def standard_upload():
+    account_list = load_account_list()
+
+    mega_account_list = account_list["mega"]
+    upload(mega_account_list[0], target_filename)
+
+
 if __name__ == '__main__':
-    distributed_download()
+    print(f"[{datetime.now()}] Process start. target file: [{target_filename}]")
+    standard_upload()
+    print(f"[{datetime.now()}] Process end.")
