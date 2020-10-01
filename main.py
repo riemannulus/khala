@@ -6,7 +6,7 @@ from datetime import datetime
 
 from mega import Mega
 
-filename = "target.dmg"
+target_filename = "target/300M.txt"
 distribute_dir = "distributed"
 chunk_size = 20 * 1024 * 1024
 
@@ -51,7 +51,7 @@ def clear_distribute(file_list):
 async def distributed_upload():
     file_list = load_file_list()
 
-    with open(filename, "rb") as f:
+    with open(target_filename, "rb") as f:
         chunk = f.read(chunk_size)
         filelist = []
 
@@ -88,9 +88,9 @@ async def distributed_upload():
         print(upload_file_chunk_list[-1])
 
     await asyncio.gather(*task_list)
-    file_list[filename] = upload_file_chunk_list
+    file_list[target_filename] = upload_file_chunk_list
     save_file_list(file_list)
-    clear_distribute(file_list[filename])
+    clear_distribute(file_list[target_filename])
 
 
 def distributed_download():
@@ -98,22 +98,25 @@ def distributed_download():
     account_list = load_account_list()
 
     mega_account_list = account_list["mega"]
-    chunk_metadata_list = file_list[filename]
+    chunk_metadata_list = file_list[target_filename]
 
     for idx, metadata in enumerate(chunk_metadata_list):
         account = mega_account_list[metadata["index"]]
         download(account, metadata["chunk_filename"])
 
-    with open("downloaded_" + filename, "wb") as f:
+    with open("downloaded_" + target_filename, "wb") as f:
         for metadata in chunk_metadata_list:
             chunk_name = metadata["chunk_filename"]
 
             with open(distribute_dir + "/" + chunk_name, "rb") as c:
                 f.write(c.read(chunk_size))
-    clear_distribute(file_list[filename])
+    clear_distribute(file_list[target_filename])
 
 
 if __name__ == '__main__':
-    print(f"[{datetime.now()}] Start upload")
+    start_time = datetime.now()
+    print(f"[{start_time}] Start upload")
     asyncio.run(distributed_upload())
-    print(f"[{datetime.now()}] Finish upload")
+    end_time = datetime.now()
+    print(f"[{end_time}] Finish upload")
+    print(f"Start: {start_time}, End: {end_time}, Record: {end_time-start_time}")
