@@ -1,103 +1,60 @@
-import hashlib
-import json
-import os
+from datetime import datetime
 
-from mega import Mega
+from gooey import Gooey, GooeyParser
 
-filename = "target.dmg"
-distribute_dir = "distributed"
-chunk_size = 20 * 1024 * 1024
+from core.khala import Khala
+from core.utils import load_file_list
 
 
-def load_account_list():
-    with open('accounts.json') as json_file:
-        return json.load(json_file)
+def upload(filename):
+    khala = Khala()
+    start_time = datetime.now()
+    print(f"[{start_time}] Start upload")
+    khala.upload(filename)
+    end_time = datetime.now()
+    print(f"[{end_time}] Finish upload")
+    print(f"Start: {start_time}, End: {end_time}, Record: {end_time-start_time}")
 
 
-def load_file_list():
-    with open('files.json') as json_file:
-        return json.load(json_file)
+def download(filename):
+    khala = Khala()
+    start_time = datetime.now()
+    print(f"[{start_time}] Start download")
+    khala.download(filename)
+    end_time = datetime.now()
+    print(f"[{end_time}] Finish download")
+    print(f"Start: {start_time}, End: {end_time}, Record: {end_time-start_time}")
 
+@Gooey(
+    program_name='Test'
+)
+def main():
+    parser = GooeyParser(
+        description='example'
+    )
+    g = parser.add_argument_group()
+    stuff = g.add_mutually_exclusive_group(
+        required=True
+    )
+    stuff.add_argument(
+        '--upload',
+        dest='upload',
+        widget='FileChooser'
+    )
+    stuff.add_argument(
+        '--download',
+        dest='download',
+        widget='Dropdown',
+        choices=load_file_list()
+    )
 
-def save_file_list(file_list):
-    with open("files.json", "w") as json_file:
-        json.dump(file_list, json_file)
+    args = parser.parse_args()
 
-
-def upload(account, filename):
-    mega = Mega()
-    mega.login(account["id"], account["password"])
-    file = mega.upload(filename)
-    return mega.get_upload_link(file)
-
-
-def download(account, filename):
-    mega = Mega()
-    mega.login(account["id"], account["password"])
-    file = mega.find(filename)
-    mega.download(file, distribute_dir)
-
-
-def clear_distribute(file_list):
-    for file in file_list:
-        os.remove(distribute_dir + "/" + file)
-
-
-def distributed_upload():
-    file_list = load_file_list()
-
-    with open(filename, "rb") as f:
-        chunk = f.read(chunk_size)
-        filelist = []
-
-        while chunk != b"":
-            m = hashlib.sha256()
-            m.update(chunk)
-            chunk_filename = m.hexdigest().__str__()
-            with open(distribute_dir + "/" + chunk_filename, "wb") as chunk_f:
-                chunk_f.write(chunk)
-
-            filelist.append(chunk_filename)
-            chunk = f.read(chunk_size)
-
-    account_list = load_account_list()
-    mega_account_list = account_list["mega"]
-
-    account_size = len(mega_account_list)
-    upload_file_chunk_list = []
-    for idx, chunk_filename in enumerate(filelist):
-        account = mega_account_list[idx % account_size]
-        upload(account, distribute_dir + "/" + chunk_filename)
-        upload_file_chunk_list.append(
-            {
-                "storage": "mega",
-                "index": idx % account_size,
-                "chunk_filename": chunk_filename
-            }
-        )
-    file_list[filename] = upload_file_chunk_list
-    save_file_list(file_list)
-    clear_distribute(file_list)
-
-
-def distributed_download():
-    file_list = load_file_list()
-    account_list = load_account_list()
-
-    mega_account_list = account_list["mega"]
-    chunk_metadata_list = file_list[filename]
-
-    for idx, metadata in enumerate(chunk_metadata_list):
-        account = mega_account_list[metadata["index"]]
-        download(account, metadata["chunk_filename"])
-
-    with open("downloaded_" + filename, "wb") as f:
-        for metadata in chunk_metadata_list:
-            chunk_name = metadata["chunk_filename"]
-
-            with open(distribute_dir + "/" + chunk_name, "rb") as c:
-                f.write(c.read(chunk_size))
+    if args.upload is not None:
+        upload(args.upload)
+    elif args.download is not None:
+        download(args.download)
 
 
 if __name__ == '__main__':
-    distributed_download()
+    main()
