@@ -80,9 +80,17 @@ class Khala:
 
         chunk_metadata_list = file_schema[filename]
 
+        procs = []
         for idx, metadata in enumerate(chunk_metadata_list):
             storage = self.storage_list[metadata["index"]]
-            storage.download(metadata["chunk_filename"], save_path)
+            proc = Process(
+                target=storage.download,
+                args=(metadata["chunk_filename"], self.temp_path))
+            procs.append(proc)
+            proc.start()
+
+        for proc in procs:
+            proc.join()
 
         if save_name == '':
             save_name = filename
