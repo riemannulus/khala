@@ -6,7 +6,7 @@ from multiprocessing import Process
 
 from mega import Mega
 
-filename = "target.dmg"
+filename = "target/300M.txt"
 distribute_dir = "distributed"
 chunk_size = 20 * 1024 * 1024
 
@@ -107,4 +107,9 @@ def distributed_download():
 
 
 if __name__ == '__main__':
+    start_time = datetime.now()
+    print(f"[{start_time}] Start upload")
     distributed_upload()
+    end_time = datetime.now()
+    print(f"[{end_time}] Finish upload")
+    print(f"Start: {start_time}, End: {end_time}, Record: {end_time-start_time}")
