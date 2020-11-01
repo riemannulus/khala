@@ -3,27 +3,14 @@ from os import path
 from os import mkdir
 from multiprocessing import Process
 
-from core.storage.mega import MegaStorage
-from core.utils import load_file_list, load_account_list, save_file_list
+from core.storage.dropbox import load_dropbox_accounts, get_dropbox_accounts
+from core.storage.mega import load_mega_accounts, get_mega_accounts
 
-
-def load_accounts():
-    account_list = load_account_list()
-    accounts = []
-    accounts += load_mega_accounts(account_list)
-
-    return sorted(accounts, key=lambda account: account.index)
-
-
-def load_mega_accounts(account_list):
-    accounts = []
-    for account_json in account_list['mega']:
-        accounts.append(MegaStorage(account_json['index'], account_json['id'], account_json['password']))
-    return accounts
+from core.utils import load_file_list, save_file_list, load_account_list, save_account_list
 
 
 class Khala:
-    # 20971520 == 20MiB
+    # 20971520 == 20MB
     def __init__(self, chunk_size=20971520, temp_path='temp'):
         self.chunk_size = chunk_size
         self.storage_list = load_accounts()
@@ -101,3 +88,30 @@ class Khala:
 
                 with open(path.join(self.temp_path, chunk_name), "rb") as c:
                     f.write(c.read(self.chunk_size))
+
+
+def load_accounts():
+    account_list = load_account_list()
+    accounts = []
+    accounts += load_mega_accounts(account_list)
+    accounts += load_dropbox_accounts(account_list)
+
+    return sorted(accounts, key=lambda account: account.index)
+
+
+def append_account(account):
+    accounts = load_accounts()
+    accounts.append(account)
+
+    save_accounts(sorted(accounts, key=lambda a: a.index))
+
+
+def save_accounts(account_list):
+    latest = account_list[-1].index
+    account_json_list = {
+        "latest": latest,
+        "mega": get_mega_accounts(account_list),
+        "dropbox": get_dropbox_accounts(account_list)
+    }
+    save_account_list(account_json_list)
+    return account_json_list

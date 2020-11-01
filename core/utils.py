@@ -18,6 +18,16 @@ def save_file_list(file_list):
         json.dump(file_list, json_file)
 
 
+def save_account_list(account_list):
+    with open("accounts.json", "w") as json_file:
+        json.dump(account_list, json_file)
+
+
+def get_latest_account_index():
+    with open('accounts.json') as json_file:
+        return json.load(json_file)['latest']
+
+
 def log_upload(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
